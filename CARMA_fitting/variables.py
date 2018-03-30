@@ -58,26 +58,28 @@ class pandaLC(kali.lc.lc):
         catalogue = pandas.read_csv("/Users/Jackster/Research/code/stripe82-class/"+'catalog.txt', sep=', ', delimiter=' ')
         labelled = catalogue[catalogue.cl != 'unknown']
  
-	redshift0 = labelled.zQSO[labelled.ID == float(name)].astype(float)
-	redshift = redshift0.values[0]
+	#redshift0 = labelled.zQSO[labelled.ID == float(name)].astype(float)
+	#redshift = redshift0.values[0]
     	#observer-frame sanity check fit uncomment below that is all
-    	#redshift = 0.
+    	redshift = 0.
     	
-	cols = ['mjd', 'band', 'mag', 'magerr']
-
-	df = pandas.read_csv(path+"LC_"+name+".dat", sep=', ', delimiter=' ', names = ["mjd","band","mag","magerr"])
+	#cols = ['mjd', 'band', 'mag', 'magerr']
+	names = ['MJD_u','u','u_err','MJD_g','g','g_err',
+        'MJD_r','r','r_err','MJD_i','i','i_err',
+        'MJD_z','z','z_err','ra_median','decl_median']
+	df = pandas.read_csv(fileName, delimiter = ' ',names=names)	
+	#df = pandas.read_csv(path+"LC_"+name+".dat", sep=', ', delimiter=' ', names = ["mjd","band","mag","magerr"])
 	self.band = band
         print(band)                  
-        rband = df[df.band == band]
-        rband = rband[rband.mag != -99].sort_values(by='mjd')
+        df = df.sort_values(by='MJD_'+band)
         #---------fluxes
-	flux, err  = luptitude_to_flux(rband.mag.values,rband.magerr.values, band)
+	flux, err  = luptitude_to_flux(df[band].values,df[band+'_err'].values, band)
 	flux = np.require(flux, requirements=['F', 'A', 'W', 'O', 'E'])
 	#flux = (flux-np.median(flux))/np.median(flux)
 	err = np.require(err, requirements=['F', 'A', 'W', 'O', 'E'])
 	#err  = err/np.median(flux)
 	#---------time
-	MJD = rband.mjd.values
+	MJD = df['MJD_'+band].values
 	time = time_to_restFrame(MJD.astype(float), redshift)
 	time = np.require(time, requirements=['F', 'A', 'W', 'O', 'E'])
         # ---final data arrays to pass to self
@@ -86,7 +88,8 @@ class pandaLC(kali.lc.lc):
         yerr = err
         cadence = np.require(np.arange(0, len(time),1), requirements=['F', 'A', 'W', 'O', 'E'])
         mask = np.require(np.zeros(len(time)), requirements= ['F', 'A', 'W', 'O', 'E'])  # Numpy array of mask values.
-        mask[:] = int(1)
+    	mask0 = (df[band] > -99) & (df[band+'_err'] < 99)
+        mask[mask0] = int(1)
         #---------------------------------------------------------
         self.startT = 1.
         self.T = time[-1]-time[0]
@@ -111,8 +114,8 @@ class pandaLC(kali.lc.lc):
         self.mask = mask     
     	self.t = t
     	#self.terr = terr[w] 
-    	self.y = (y[:]-np.median(y[:]))/np.median(y[:])
-        self.yerr = yerr[:]/np.median(y[:])
+    	self.y = (y[mask0]-np.median(y[mask0]))/np.median(y[mask0])
+        self.yerr = yerr[mask0]/np.median(y[mask0])
 
     def read(self, name, path ,band ,**kwargs):
         self.z = kwargs.get('z', 0.0)
